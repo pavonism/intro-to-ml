@@ -7,6 +7,7 @@ from backend.tsrc.data import Environments
 from data_preprocessing.augmentation.compose import Compose
 from math import ceil
 import soundfile as sf
+import shutil
 
 def addNoise(y, sr, noiseThreshold):
         noise = np.random.normal(0, noiseThreshold, len(y))
@@ -78,30 +79,23 @@ def add_reverb(y, sr):
 class AugmentAudio:
     def __init__(self, input_path):
         self.input_path = input_path
-        self.audioData = AudioLoader().load_data(input_path)
+        self.audioDataTrain = AudioLoader().load_data(os.path.join(input_path, "/Train/"))
 
     def getUniqueSpeakers(self, env):
         speakersList=set()
-        for audio in self.audioData:
+        for audio in self.audioDataTrain:
             if audio.class_id == env:
                 speakersList.add(audio.speaker_id)
         return speakersList
     
     def getSpeakerRecordings(self, speaker_id, env):
         audioList=[]
-        for audio in self.audioData:
+        for audio in self.audioDataTrain:
             if audio.class_id == env and audio.speaker_id == speaker_id:
                 audioList.add(audio)
         return audioList
     
-    def splitAugmentation()
-        """
-        Makes sure that augmentation is only done on train.
-
-        Copies val and test to new location
-        """
-    
-    def __call__(self, input_path: str, output_path: str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
+    def augmentTrain(self, input_path : str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
         for env in Environments.get_all_clean():
             for speaker in self.getUniqueSpeakers(env):
                 speakerRecordings = self.getSpeakerRecordings(speaker, env)
@@ -114,6 +108,34 @@ class AugmentAudio:
                     pathToSave = output_path + recording.train_validaton_test + f"/{env}/" + augmented_recording.speaker_id + infoString + r".wav"
                     pathToSave = os.path.normpath(pathToSave)
                     sf.write(pathToSave, augmented_recording.samples, augmented_recording.sample_rate)
+    
+    def splitAugmentation(self, input_path: str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
+        """
+        Makes sure that augmentation is only done on train.
+
+        Copies val and test to new location
+        """
+        for root, dirs, files in os.walk(input_path):
+            if files is None:
+                continue
+            print(f"root: {root}, dirs: {dirs}, files[0] {files[0]}")
+            return
+            if dirs == "Train":
+                train_path = os.path.join(input_path, "/Train/")
+                self.augmentTrain(train_path, output_path, compose_pipeline, wantedNoFilesPerSpeaker)
+            elif dirs in ["Test", "Validation"]:
+                for file in files:
+                    # if no directory create one
+                    _output_path = os.path.join(output_path, dirs)
+                    os.makedirs(_output_path, exist_ok=True)
+                    shutil.copy2(os.path.join(root, dirs, file), os.path.join(output_path, file))
+            else:
+                print(f"Skipping directory {dirs}")
+
+    
+    def __call__(self, input_path: str, output_path: str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
+        self.splitAugmentation(input_path, output_path, compose_pipeline, wantedNoFilesPerSpeaker)
+        
                 
 
 
