@@ -7,6 +7,18 @@ from backend.daps.data import Devices, Environments, Scripts, Speakers
 
 
 class DAPSLoader:
+    """
+    A class to load and manage audio data from the DAPS dataset.
+    Attributes:
+        path (str): The path to the dataset directory.
+    Methods:
+    -------
+    get_audio(speakers: List[str] = [], scripts: List[str] = [], devices: List[str] = [], environments: List[str] = []) -> List[AudioData]
+        Retrieves audio data based on specified filters or all available data if no filters are provided.
+    get_all_noisy_audio() -> List[AudioData]
+        Retrieves all audio data recorded in noisy environments.
+    """
+
     def __init__(self, path: str) -> None:
         self.__path = path
         pass
@@ -18,6 +30,19 @@ class DAPSLoader:
         devices: List[str] = [],
         environments: List[str] = [],
     ) -> List[AudioData]:
+        """
+        Retrieves audio data based on specified filters or all available data if no filters are provided.
+
+        Parameters:
+            speakers (List[str]): List of speaker identifiers to filter the audio data.
+            scripts (List[str]): List of script identifiers to filter the audio data.
+            devices (List[str]): List of device identifiers to filter the audio data.
+            environments (List[str]): List of environment identifiers to filter the audio data.
+
+        Returns:
+            List[AudioData]: A list of AudioData objects that match the specified filters.
+        """
+
         speakers = speakers if speakers else Speakers.get_all()
         scripts = scripts if scripts else Scripts.get_all()
         devices = devices if devices else Devices.get_all()
@@ -33,6 +58,13 @@ class DAPSLoader:
         ]
 
     def get_all_noisy_audio(self) -> List[AudioData]:
+        """
+        Retrieves all audio data recorded in noisy environments.
+
+        Returns:
+            List[AudioData]: A list of AudioData objects recorded in noisy environments.
+        """
+
         return self.get_audio(
             speakers=Speakers.get_all(),
             scripts=Scripts.get_all(),
