@@ -46,3 +46,13 @@ class AudioToSpectrogramConverter:
         plt.savefig(buf, bbox_inches="tight", pad_inches=0, format="png", dpi=dpi)
         buf.seek(0)
         return PIL.Image.open(buf)
+    
+    def convert_to_bytes(self, audio: AudioData, dpi: int = 100) -> Image:
+        spec = np.abs(librosa.stft(audio.samples, hop_length=512))
+        spec = librosa.amplitude_to_db(spec, ref=np.max)
+        librosa.display.specshow(spec, sr=audio.sample_rate)
+
+        buf = io.BytesIO()
+        plt.savefig(buf, bbox_inches="tight", pad_inches=0, format="png", dpi=dpi)
+        buf.seek(0)
+        return buf

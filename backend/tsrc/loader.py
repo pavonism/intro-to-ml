@@ -38,7 +38,7 @@ class TSRCLoader:
         environments = environments if environments else Environments.get_all()
 
         return [
-            self.__load_audio(file)
+            self.__load_audio(file, environment)
             for environment in environments
             for file in self.__get_files(environment)
         ]
@@ -63,6 +63,8 @@ class TSRCLoader:
 
         return found_files if found_files else []
 
-    def __load_audio(self, file_path: str) -> AudioData:
+    def __load_audio(self, file_path: str, tag : str) -> AudioData:
         y, sr = librosa.load(file_path)
-        return AudioData(y, sr)
+        speaker_id = file_path[-21:-13]
+        repetition_no = file_path[-5:-4]
+        return AudioData(y, sr, tag, speaker_id, repetition_no)
