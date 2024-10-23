@@ -10,6 +10,12 @@ $ venv/bin/activate (Linux) ./venv/Scripts/activate (Win)
 $ pip install -e .
 ``` 
 
+Additionally, you have to install Torch for cuda by yourself:
+
+```console 
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
 # Run 
 
 ```console
