@@ -3,9 +3,10 @@ name = "backend"
 version = "0.0.1"
 description = "Backend for Audio Intercom Classifier"
 dependencies = [
-    "pyaudio==0.2.14",
+    "ipywidgets==8.1.5",
     "librosa==0.10.2",
     "matplotlib==3.9.2",
+    "pyaudio==0.2.14",
     "torch==2.5.0+cu121",
 ]
 [build-system]
