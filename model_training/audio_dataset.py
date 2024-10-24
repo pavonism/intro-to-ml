@@ -4,7 +4,7 @@ from torchvision.datasets import ImageFolder
 
 class AudioDataset(Dataset):
     def __init__(self, data_dir, transform=None):
-        self.data = ImageFolder(data_dir, transform=transform)
+        self.data = ImageFolder(data_dir, transform = transform)
 
     def __len__(self):
         return len(self.data)
