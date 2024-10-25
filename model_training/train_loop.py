@@ -1,59 +1,74 @@
+from typing import List
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import os
 import time
+from tqdm import tqdm
 
 
-def Loop(model , PATH , trainloader , valloader , device , num_epochs , load):
+def save_results(train_losses: List[float], val_losses: List[float]):
+    with open("train_losses.csv", "w") as f:
+        for item in train_losses:
+            f.write("%s\n" % item)
 
-    if(os.path.exists(PATH) == True and load):
-        model.load_state_dict(torch.load(PATH, weights_only=True))
+    with open("val_losses.csv", "w") as f:
+        for item in val_losses:
+            f.write("%s\n" % item)
+
+
+def Loop(
+    model: nn.Module,
+    path: str,
+    train_loader: torch.utils.data.DataLoader,
+    validation_loader: torch.utils.data.DataLoader,
+    device: torch.device,
+    num_epochs: int,
+    train_from_scratch: bool = False,
+):
+    if os.path.exists(path) == True and train_from_scratch == False:
+        model.load_state_dict(torch.load(path, weights_only=True))
         model.eval()
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
-    train_losses , val_losses = [] , []
+    train_losses, val_losses = [], []
 
-    for epoch in range(num_epochs):
+    for epoch in tqdm(range(num_epochs)):
         start_time = time.time()
-        print(f"Epoch {epoch} Started")
-        
+
         model.train()
         running_loss = 0.0
-        for images, labels in trainloader:
+        for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
-            
+
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             running_loss += loss.item() * labels.size(0)
-        train_loss = running_loss / len(trainloader.dataset)
+        train_loss = running_loss / len(train_loader.dataset)
         train_losses.append(train_loss)
 
         model.eval()
         running_loss = 0.0
         with torch.no_grad():
-            for images, labels in valloader:
+            for images, labels in validation_loader:
                 # Move inputs and labels to the device
                 images, labels = images.to(device), labels.to(device)
-            
+
                 outputs = model(images)
                 loss = criterion(outputs, labels)
                 running_loss += loss.item() * labels.size(0)
-        val_loss = running_loss / len(valloader.dataset)
+        val_loss = running_loss / len(validation_loader.dataset)
         val_losses.append(val_loss)
 
         print(f"Epoch {epoch} Done after {time.time() - start_time} seconds")
+        save_results(train_losses, val_losses)
 
-    print('Finished Training')
-
-    #for val_loss , train_loss in val_losses , train_losses:
-    #    print(val_loss , "\n" , train_loss , "\n")
-
-    torch.save(model.state_dict(), PATH)
+    print("Finished Training")
+    torch.save(model.state_dict(), path)
 
     return model
