@@ -10,16 +10,12 @@ from PIL import Image
 from model_training.audio_dataset import AudioDataset
 from model_training.neural_network import Net
 from model_training.train_loop import Loop
-from model_training.test_methods import Test
 
 
 class CNNClassifier:
     def __init__(
         self,
         path: str,
-        image_train_path: str,
-        image_val_path: str,
-        batch_size: int = 32,
     ) -> None:
         self.__path = path
 
@@ -29,6 +25,30 @@ class CNNClassifier:
                 transforms.ToTensor(),
             ]
         )
+
+        self.__device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        self.__model = Net()
+        self.__model.to(self.__device)
+
+        if os.path.exists(self.__path) == True:
+            self.__model.load_state_dict(
+                torch.load(f"{self.__path}/model.pth", weights_only=True)
+            )
+            self.__model.eval()
+        else:
+            os.makedirs(self.__path, exist_ok=True)
+
+    def fit(
+        self,
+        image_train_path: str,
+        image_val_path: str,
+        batch_size: int = 32,
+        n_epochs: int = 5,
+        train_from_scratch: bool = False,
+    ):
+        if train_from_scratch:
+            self.__model = Net()
 
         validation_set = AudioDataset(image_val_path, transform=self.__transform)
         self.__validation_loader = DataLoader(
@@ -43,25 +63,6 @@ class CNNClassifier:
             batch_size=batch_size,
             shuffle=True,
         )
-
-        self.__device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-        self.__model = Net()
-        self.__model.to(self.__device)
-
-        if os.path.exists(self.__path) == True:
-            self.__model.load_state_dict(
-                torch.load(f"{self.__path}/model.pth", weights_only=True)
-            )
-            self.__model.eval()
-
-    def fit(
-        self,
-        n_epochs: int = 5,
-        train_from_scratch: bool = False,
-    ):
-        if train_from_scratch:
-            self.__model = Net()
 
         print(
             "Running training on GPU..."

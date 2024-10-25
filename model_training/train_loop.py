@@ -63,6 +63,6 @@ def Loop(
         save_results(path, train_losses, val_losses)
 
     print("Finished Training")
-    torch.save(model.state_dict(), path)
+    torch.save(model.state_dict(), f"{path}/model.pth")
 
     return model
