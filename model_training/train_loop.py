@@ -2,17 +2,16 @@ from typing import List
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import os
 import time
 from tqdm import tqdm
 
 
-def save_results(train_losses: List[float], val_losses: List[float]):
-    with open("train_losses.csv", "w") as f:
+def save_results(path: str, train_losses: List[float], val_losses: List[float]):
+    with open(f"{path}/train_losses.csv", "w") as f:
         for item in train_losses:
             f.write("%s\n" % item)
 
-    with open("val_losses.csv", "w") as f:
+    with open(f"{path}/val_losses.csv", "w") as f:
         for item in val_losses:
             f.write("%s\n" % item)
 
@@ -24,12 +23,7 @@ def Loop(
     validation_loader: torch.utils.data.DataLoader,
     device: torch.device,
     num_epochs: int,
-    train_from_scratch: bool = False,
 ):
-    if os.path.exists(path) == True and train_from_scratch == False:
-        model.load_state_dict(torch.load(path, weights_only=True))
-        model.eval()
-
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
@@ -66,7 +60,7 @@ def Loop(
         val_losses.append(val_loss)
 
         print(f"Epoch {epoch} Done after {time.time() - start_time} seconds")
-        save_results(train_losses, val_losses)
+        save_results(path, train_losses, val_losses)
 
     print("Finished Training")
     torch.save(model.state_dict(), path)
