@@ -31,13 +31,11 @@ class CNNClassifier:
         self.__model = Net()
         self.__model.to(self.__device)
 
-        if os.path.exists(self.__path) == True:
-            self.__model.load_state_dict(
-                torch.load(f"{self.__path}/model.pth", weights_only=True)
-            )
+        os.makedirs(self.__path, exist_ok=True)
+        model_path = f"{self.__path}/model.pth"
+        if os.path.exists(model_path) == True:
+            self.__model.load_state_dict(torch.load(model_path, weights_only=True))
             self.__model.eval()
-        else:
-            os.makedirs(self.__path, exist_ok=True)
 
     def fit(
         self,

@@ -27,6 +27,16 @@ def Loop(
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        factor=0.1,
+        patience=10,
+        threshold=1e-4,
+        min_lr=1e-6,
+        verbose=True,
+    )
+
     train_losses, val_losses = [], []
 
     for epoch in tqdm(range(num_epochs)):
@@ -58,6 +68,7 @@ def Loop(
                 running_loss += loss.item() * labels.size(0)
         val_loss = running_loss / len(validation_loader.dataset)
         val_losses.append(val_loss)
+        scheduler.step(val_loss)
 
         print(f"Epoch {epoch} Done after {time.time() - start_time} seconds")
         save_results(path, train_losses, val_losses)
