@@ -67,4 +67,5 @@ class TSRCLoader:
         y, sr = librosa.load(file_path)
         speaker_id = file_path[-21:-13]
         repetition_no = file_path[-5:-4]
-        return AudioData(y, sr, tag, speaker_id, repetition_no)
+        class_id = ''
+        return AudioData(y, sr, tag, speaker_id, repetition_no, class_id)
