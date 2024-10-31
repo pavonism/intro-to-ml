@@ -12,7 +12,8 @@ from typing import Dict, List, Tuple
 
 def divide_into_classes(
     path: str,
-    min_available_files: int = 15,
+    positive_class_count: int = 50,
+    min_available_files_for_positive_class: int = 20,
 ) -> Tuple[List[str], List[str], Dict[str, List[str]]]:
     files = glob.glob(f"{path}/**/*_nohash_0.wav", recursive=True)
     speaker_id_to_files: Dict[str, List[str]] = {}
@@ -23,16 +24,21 @@ def divide_into_classes(
             speaker_id_to_files[speaker_id] = []
         speaker_id_to_files[speaker_id].append(file)
 
-    accepted_speakers = [
+    speakers_with_at_least_min_available_files = [
         speaker_id
         for speaker_id in speaker_id_to_files
-        if len(speaker_id_to_files[speaker_id]) >= min_available_files
+        if len(speaker_id_to_files[speaker_id])
+        >= min_available_files_for_positive_class
     ]
 
-    positive_class = random.sample(accepted_speakers, len(accepted_speakers) // 2)
+    positive_class = random.sample(
+        speakers_with_at_least_min_available_files,
+        positive_class_count,
+    )
+
     negative_class = [
         speaker_id
-        for speaker_id in accepted_speakers
+        for speaker_id in speakers_with_at_least_min_available_files
         if speaker_id not in positive_class
     ]
 
@@ -113,7 +119,7 @@ def split_and_update(
     dataset_class_files = []
 
     for speaker in split:
-        random_sample = random.sample(speaker_to_files[speaker], 4)
+        random_sample = random.sample(speaker_to_files[speaker], 3)
         for file in random_sample:
             dataset_class_files.append(file)
             speaker_to_files[speaker].remove(file)
