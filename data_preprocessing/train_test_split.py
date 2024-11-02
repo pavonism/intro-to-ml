@@ -2,10 +2,7 @@ import glob
 import os
 from pathlib import Path
 import shutil
-
 from tqdm import tqdm
-
-import glob
 import random
 from typing import Dict, List, Tuple
 
@@ -26,9 +23,8 @@ def divide_into_classes(
 
     speakers_with_at_least_min_available_files = [
         speaker_id
-        for speaker_id in speaker_id_to_files
-        if len(speaker_id_to_files[speaker_id])
-        >= min_available_files_for_positive_class
+        for speaker_id, files in speaker_id_to_files.items()
+        if len(files) >= min_available_files_for_positive_class
     ]
 
     positive_class = random.sample(
@@ -38,7 +34,7 @@ def divide_into_classes(
 
     negative_class = [
         speaker_id
-        for speaker_id in speakers_with_at_least_min_available_files
+        for speaker_id in speaker_id_to_files
         if speaker_id not in positive_class
     ]
 
@@ -59,25 +55,25 @@ def train_test_split_files(
 
     positive_class, negative_class, speaker_to_files = divide_into_classes(input_path)
 
-    positive_class, positive_class_test_files = split_and_update(
+    positive_class_test_files = split_positive_class(
         testing_split,
         positive_class,
         speaker_to_files,
     )
 
-    negative_class, negative_class_test_files = split_and_update(
+    negative_class_test_files = split_negative_class(
         testing_split,
         negative_class,
         speaker_to_files,
     )
 
-    positive_class, positive_class_validation_files = split_and_update(
+    positive_class_validation_files = split_positive_class(
         validation_split,
         positive_class,
         speaker_to_files,
     )
 
-    negative_class, negative_class_validation_files = split_and_update(
+    negative_class_validation_files = split_negative_class(
         validation_split,
         negative_class,
         speaker_to_files,
@@ -109,20 +105,49 @@ def train_test_split_files(
             shutil.copy(file, os.path.join(train_path, "0", f"{word}_{file_name}"))
 
 
-def split_and_update(
-    testing_split: float,
-    dataset_class: List[str],
+def split_positive_class(
+    split_factor: float,
+    positive_class_speakers: List[str],
     speaker_to_files: Dict[str, List[str]],
 ):
-    split = random.sample(dataset_class, int(len(dataset_class) * testing_split // 2))
+    split = random.sample(
+        positive_class_speakers,
+        int(len(positive_class_speakers) * split_factor // 2),
+    )
 
-    dataset_class_files = []
+    dataset_split_class_files = []
 
-    for speaker in split:
-        random_sample = random.sample(speaker_to_files[speaker], 3)
+    for speaker_id in split:
+        random_sample = random.sample(speaker_to_files[speaker_id], 3)
         for file in random_sample:
-            dataset_class_files.append(file)
-            speaker_to_files[speaker].remove(file)
+            dataset_split_class_files.append(file)
+            speaker_to_files[speaker_id].remove(file)
 
-    dataset_class = list(set(dataset_class) - set(split))
-    return dataset_class, dataset_class_files
+    return dataset_split_class_files
+
+
+def split_negative_class(
+    split_factor: float,
+    negative_class_speakers: List[str],
+    speaker_to_files: Dict[str, List[str]],
+):
+    available_speakers = [
+        speaker_id
+        for speaker_id in negative_class_speakers
+        if len(speaker_to_files[speaker_id]) >= 3
+    ]
+
+    split = random.sample(
+        available_speakers,
+        int(len(negative_class_speakers) * split_factor // 2),
+    )
+
+    dataset_split_class_files = []
+
+    for speaker_id in split:
+        random_sample = random.sample(speaker_to_files[speaker_id], 3)
+        for file in random_sample:
+            dataset_split_class_files.append(file)
+            speaker_to_files[speaker_id].remove(file)
+
+    return dataset_split_class_files
