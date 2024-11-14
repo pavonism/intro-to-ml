@@ -50,13 +50,13 @@ def clean_audio_file(file_path):
 def clean_audio_folder(input_path: str, output_path: str):
     for dataset in ["train", "test", "validation"]:
         print(f"Cleaning audio files for {dataset} data...")
-        for label in ["0", "1"]:
-            output_directory = os.path.join(output_path, dataset, label)
+        for word in os.listdir(f"{input_path}/{dataset}"):
+            output_directory = os.path.join(output_path, dataset, word)
             os.makedirs(output_directory, exist_ok=True)
 
             for file in tqdm(
                 glob.glob(
-                    f"{input_path}/{dataset}/{label}/**.wav",
+                    f"{input_path}/{dataset}/{word}/**.wav",
                     recursive=True,
                 )
             ):

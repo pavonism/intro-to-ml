@@ -10,16 +10,24 @@ from backend.audio_to_spectrogram_converter import AudioToSpectrogramConverter
 def convert_audio_files_to_images(input_path: str, output_path: str):
     converter = AudioToSpectrogramConverter()
 
-    for dataset in ["train", "test", "validation"]:
-        print(f"Converting audio files to images for {dataset} data...")
-        for label in ["0", "1"]:
-            output_directory = os.path.join(output_path, dataset, label)
-            os.makedirs(output_directory, exist_ok=True)
+    for subset in ["train", "test", "validation"]:
+        for word in os.listdir(f"{input_path}/{subset}"):
+            if word == "_background_noise_":
+                continue
+
+            word_directory = f"{output_path}/{subset}/{word}"
+            os.makedirs(word_directory, exist_ok=True)
 
             for file in tqdm(
-                glob.glob(f"{input_path}/{dataset}/{label}/**.wav", recursive=True)
+                glob.glob(
+                    f"{input_path}/{subset}/{word}/**.wav",
+                    recursive=True,
+                ),
+                desc=f"Dataset: {subset}. Converting {word} files to images",
             ):
-                output_file = f"{output_directory}/{Path(file).stem}.png"
+                output_file = f"{word_directory}/{Path(file).stem}.png"
 
-                if not os.path.exists(output_file):
-                    converter.convert_file(file, output_file, (330, 430))
+                if os.path.exists(output_file):
+                    continue
+
+                converter.convert_file(file, output_file)
