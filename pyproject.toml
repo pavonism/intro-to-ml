@@ -9,7 +9,6 @@ dependencies = [
     "noisereduce==3.0.3",
     "pyaudio==0.2.14",
     "pydub==0.25.1",
-    "torch==2.5.0+cu121",
 ]
 [build-system]
 build-backend = "flit_core.buildapi"
