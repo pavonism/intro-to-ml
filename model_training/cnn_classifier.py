@@ -1,14 +1,12 @@
 import glob
 import os
-from pathlib import Path
 from typing import Dict
 import torch
-import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from PIL import Image
 
+from model_training.architectures import Architecture
 from model_training.audio_dataset import AudioDataset
-from model_training.neural_network import Net
 from model_training.train_loop import Loop
 
 
@@ -16,20 +14,12 @@ class CNNClassifier:
     def __init__(
         self,
         path: str,
+        architecture: Architecture,
     ) -> None:
         self.__path = path
-
-        self.__transform = transforms.Compose(
-            [
-                transforms.Resize((300, 400)),
-                transforms.ToTensor(),
-            ]
-        )
-
         self.__device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-        self.__model = Net()
-        self.__model.to(self.__device)
+        self.__model = architecture.get_model().to(self.__device)
+        self.__transform = architecture.get_transform()
 
         os.makedirs(self.__path, exist_ok=True)
         model_path = f"{self.__path}/model.pth"
@@ -43,11 +33,7 @@ class CNNClassifier:
         image_val_path: str,
         batch_size: int = 32,
         n_epochs: int = 5,
-        train_from_scratch: bool = False,
     ):
-        if train_from_scratch:
-            self.__model = Net()
-
         validation_set = AudioDataset(image_val_path, transform=self.__transform)
         self.__validation_loader = DataLoader(
             validation_set,
@@ -81,12 +67,8 @@ class CNNClassifier:
         file_predictions = {}
 
         for file in glob.glob(f"{test_image_path}/**/**.png", recursive=True):
-            file_name = Path(file).stem
             predictions = self.__predict_image(file)
-            if predictions[1] > 0.5:
-                file_predictions[file_name] = 1
-            else:
-                file_predictions[file_name] = 0
+            file_predictions[file] = predictions.argmax()
 
         return file_predictions
 

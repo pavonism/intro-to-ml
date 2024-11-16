@@ -6,14 +6,12 @@ import time
 from tqdm import tqdm
 
 
-def save_results(path: str, train_losses: List[float], val_losses: List[float]):
-    with open(f"{path}/train_losses.csv", "w") as f:
-        for item in train_losses:
-            f.write("%s\n" % item)
+def save_results(path: str, train_loss: float, val_loss: float):
+    with open(f"{path}/train_losses.csv", "a") as f:
+        f.write("%s\n" % train_loss)
 
-    with open(f"{path}/val_losses.csv", "w") as f:
-        for item in val_losses:
-            f.write("%s\n" % item)
+    with open(f"{path}/val_losses.csv", "a") as f:
+        f.write("%s\n" % val_loss)
 
 
 def Loop(
@@ -38,6 +36,7 @@ def Loop(
     )
 
     train_losses, val_losses = [], []
+    val_loss_rising = 0
 
     for epoch in tqdm(range(num_epochs)):
         start_time = time.time()
@@ -67,11 +66,19 @@ def Loop(
                 loss = criterion(outputs, labels)
                 running_loss += loss.item() * labels.size(0)
         val_loss = running_loss / len(validation_loader.dataset)
+
+        if epoch > 0:
+            val_loss_rising = 0 if val_loss < val_losses[-1] else val_loss_rising + 1
+
         val_losses.append(val_loss)
         scheduler.step(val_loss)
 
         print(f"Epoch {epoch} Done after {time.time() - start_time} seconds")
-        save_results(path, train_losses, val_losses)
+        save_results(path, train_loss, val_loss)
+
+        if val_loss_rising > 5:
+            print("Validation score increased five times in a row. Early stopping...")
+            break
 
     print("Finished Training")
     torch.save(model.state_dict(), f"{path}/model.pth")
