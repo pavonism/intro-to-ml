@@ -12,7 +12,7 @@ class SimpleConvolutionNet(nn.Module):
         self.conv2 = nn.Conv2d(6, 16, 5)
         self.fc1 = nn.Linear(16 * 72 * 97, 500)
         self.fc2 = nn.Linear(500, 100)
-        self.fc3 = nn.Linear(100, 2)
+        self.fc3 = nn.Linear(100, 30)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.pool(F.relu(self.conv1(x)))
