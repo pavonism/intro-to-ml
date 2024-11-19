@@ -9,6 +9,7 @@ dependencies = [
     "noisereduce==3.0.3",
     "pyaudio==0.2.14",
     "pydub==0.25.1",
+    "audiomentations==0.36.1"
 ]
 [build-system]
 build-backend = "flit_core.buildapi"

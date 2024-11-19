@@ -12,6 +12,20 @@ class AudioLoader():
         return audio_data.AudioData(y, sr, train_validaton_test, speaker_id, class_id)
     
     @staticmethod
+    def split_path(path, index):
+        try:
+            path = os.path.normpath(path)
+        except:
+            print(f"Cannot norm path {path}")
+
+        if len(path.split('/')) > 1:
+            return path.split('/')[index]
+        elif len(path.split('\\')) > 1:
+            return path.split('\\')[index]
+        else:
+            raise Exception("Unable to split path {path}")
+    
+    @staticmethod
     def load_data(path):
         objects_list = []
         
@@ -20,9 +34,9 @@ class AudioLoader():
                 for file in tqdm(files):
                     file_path = os.path.join(subdir, file)
                     file_path = os.path.normpath(file_path)
-                    train_validaton_test = file_path.split('\\')[-3]
-                    speaker_id = file.split('_')[0]
-                    class_id = file_path.split('\\')[-2]
+                    train_validaton_test = AudioLoader.split_path(file_path, -3)
+                    speaker_id = AudioLoader.split_path(file_path, -1)
+                    class_id = AudioLoader.split_path(file_path, -2)
                     #print(f"train_test : {train_validaton_test}, speaker_id: {speaker_id}, class_id : {class_id}")
 
                     data_object = AudioLoader.__load_audio(file_path=file_path,
