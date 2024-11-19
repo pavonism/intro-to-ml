@@ -80,6 +80,7 @@ class AugmentAudio:
     def __init__(self, input_path):
         self.input_path = input_path
         self.audioDataTrain = AudioLoader().load_data(os.path.join(input_path, "/Train/"))
+        self.audioDataNotAugmenting = AudioLoader().load_data(os.path.join(input_path, "/Test/")) + AudioLoader().load_data(os.path.join(input_path, "/Validation/"))
 
     def getUniqueSpeakers(self, env):
         speakersList=set()
@@ -133,8 +134,8 @@ class AugmentAudio:
                 print(f"Skipping directory {dirs}")
 
     
-    def __call__(self, input_path: str, output_path: str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
-        self.splitAugmentation(input_path, output_path, compose_pipeline, wantedNoFilesPerSpeaker)
+    def __call__(self, output_path: str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
+        self.splitAugmentation(self.input_path, output_path, compose_pipeline, wantedNoFilesPerSpeaker)
         
                 
 
@@ -142,7 +143,8 @@ class AugmentAudio:
 
 def augment_audio_files(input_path: str, output_path: str, transformation):
     print(f"Loading audio files... {os.path.abspath(input_path)}")
-    audioData = AudioLoader().load_data(input_path)
+    #audioData = AudioLoader().load_data(input_path)
+    AugmentAudio(input_path)(output_path, transformation, 10)
 
 
     #for env in Environments.get_all_clean():
