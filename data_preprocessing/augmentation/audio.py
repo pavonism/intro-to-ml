@@ -1,7 +1,8 @@
 import numpy as np
 import audiomentations
 import os
-import tqdm
+from tqdm import tqdm
+from backend import audio_data
 from backend.spectrograms.utils import AudioLoader
 from backend.tsrc.data import Environments
 from data_preprocessing.augmentation.compose import Compose
@@ -9,9 +10,11 @@ from math import ceil
 import soundfile as sf
 import shutil
 
-def addNoise(y, sr, noiseThreshold):
+def addNoise(audio : audio_data.AudioData, noiseThreshold):
+        y = audio.samples
         noise = np.random.normal(0, noiseThreshold, len(y))
-        return y + noise, sr 
+        audio.samples = y + noise
+        return audio
     
 def addReverb(y, sr):
     """
@@ -79,22 +82,22 @@ def add_reverb(y, sr):
 class AugmentAudio:
     def __init__(self, input_path):
         self.input_path = input_path
-        self.audioDataTrain = AudioLoader().load_data(os.path.join(input_path, "/Train/"))
-        self.audioDataNotAugmenting = AudioLoader().load_data(os.path.join(input_path, "/Test/")) + AudioLoader().load_data(os.path.join(input_path, "/Validation/"))
+        print(f"Loading audio files... {os.path.join(input_path, 'train', 'bed')}")
+        self.audioDataTrain = AudioLoader().load_data(os.path.join(input_path, 'train', 'bed'))
 
     def getUniqueSpeakers(self, env):
-        speakersList=set()
+        speakersSet=set()
         for audio in self.audioDataTrain:
             if audio.class_id == env:
-                speakersList.add(audio.speaker_id)
-        return speakersList
+                speakersSet.add(audio.speaker_id)
+        return list(speakersSet)
     
     def getSpeakerRecordings(self, speaker_id, env):
-        audioList=[]
+        audioSet=set()
         for audio in self.audioDataTrain:
             if audio.class_id == env and audio.speaker_id == speaker_id:
-                audioList.add(audio)
-        return audioList
+                audioSet.add(audio)
+        return list(audioSet)
     
     def augmentTrain(self, input_path : str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
         for env in Environments.get_all_clean():
@@ -106,8 +109,11 @@ class AugmentAudio:
                     raise Exception(f"wantedNoFilesPerSpeaker == {wantedNoFilesPerSpeaker} but in base dataset there are already {noRecordings} number of recordings for env {env} and speaker {speaker}")
                 for recording in speakerRecordings:
                     augmented_recording, infoString = compose_pipeline(recording, ceil(wantedAugmentationsPerFile))
-                    pathToSave = output_path + recording.train_validaton_test + f"/{env}/" + augmented_recording.speaker_id + infoString + r".wav"
+                    file_name = augmented_recording.file_path.split('//')[-1].removesuffix(".wav")
+                    pathToSave = os.path.join(output_path, env, file_name, infoString, ".wav")
                     pathToSave = os.path.normpath(pathToSave)
+                    print(f"Saving... in path {pathToSave}")
+                    return
                     sf.write(pathToSave, augmented_recording.samples, augmented_recording.sample_rate)
     
     def splitAugmentation(self, input_path: str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
@@ -116,22 +122,21 @@ class AugmentAudio:
 
         Copies val and test to new location
         """
-        for root, dirs, files in os.walk(input_path):
-            if files is None:
-                continue
-            print(f"root: {root}, dirs: {dirs}, files[0] {files[0]}")
-            return
-            if dirs == "Train":
-                train_path = os.path.join(input_path, "/Train/")
-                self.augmentTrain(train_path, output_path, compose_pipeline, wantedNoFilesPerSpeaker)
-            elif dirs in ["Test", "Validation"]:
+        for root, dirs, files in tqdm(os.walk(input_path)):
+            train_test_val = os.path.normpath(root).split('\\')[-2]
+            if train_test_val in ["test", "validation"]:
                 for file in files:
                     # if no directory create one
-                    _output_path = os.path.join(output_path, dirs)
+                    _output_path = os.path.join(output_path, train_test_val)
                     os.makedirs(_output_path, exist_ok=True)
-                    shutil.copy2(os.path.join(root, dirs, file), os.path.join(output_path, file))
+                    shutil.copy2(os.path.join(root, file), os.path.join(_output_path, file))
             else:
-                print(f"Skipping directory {dirs}")
+                print(f"Skipping directory {dirs}, root {root}, split {train_test_val}")
+        
+        #Augmenting train
+        _output_path = os.path.join(output_path, train_test_val)
+        train_path = os.path.join(input_path, "train")
+        self.augmentTrain(train_path, _output_path, compose_pipeline, wantedNoFilesPerSpeaker)
 
     
     def __call__(self, output_path: str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
@@ -141,10 +146,8 @@ class AugmentAudio:
 
 
 
-def augment_audio_files(input_path: str, output_path: str, transformation):
-    print(f"Loading audio files... {os.path.abspath(input_path)}")
-    #audioData = AudioLoader().load_data(input_path)
-    AugmentAudio(input_path)(output_path, transformation, 10)
+def augment_audio_files(input_path: str, output_path: str, transformation, wantedNoFilesPerSpeaker):
+    AugmentAudio(input_path)(output_path, transformation, wantedNoFilesPerSpeaker)
 
 
     #for env in Environments.get_all_clean():

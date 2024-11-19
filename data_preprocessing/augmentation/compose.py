@@ -28,10 +28,10 @@ class Compose:
                 if p > random.uniform(0, 1) and augmentationsPerformed <= maxAugmentations:
                     _audio = t(_audio)
                     augmentationsPerformed += 1
-                    infoString += str(i)
+                    infoString = infoString.app + str(i)
         return _audio
     
-    def __call__(self, audio, maxAugmentations):
+    def __call__(self, audio, maxAugmentations = None):
         if maxAugmentations is None:
             return self.augment(audio)
         else:
