@@ -17,7 +17,7 @@ def addNoise(audio : audio_data.AudioData, noiseThreshold):
         audio.samples = y + noise
         return audio
     
-def addReverb(y, sr):
+def addReverb(audio : audio_data.AudioData):
     """
     Add reverberation effect using audiomentations with correct parameters
     """
@@ -85,6 +85,9 @@ class AugmentAudio:
         self.input_path = input_path
         print(f"Loading audio files... {os.path.join(input_path, 'train', 'bed')}")
         self.audioDataTrain = AudioLoader().load_data(os.path.join(input_path, 'train', 'bed'))
+
+    def getClassRecordingsCount(self, env):
+        return len([audio for audio in self.audioDataTrain if audio.class_id == env])
 
     def getUniqueSpeakers(self, env):
         a = self.audioDataTrain[0]
