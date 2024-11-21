@@ -108,20 +108,20 @@ class AugmentAudio:
                 audioSet.add(audio)
         return list(audioSet)
     
-    def augmentTrain(self, input_path : str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerSpeaker):
+    def augmentTrain(self, input_path : str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerClass):
         print("Augmenting train")
         for env in Environments.get_all_clean():
+            filesInEnv = self.getClassRecordingsCount(env)
+            if noFilesToAugment is not None:
+                noFilesToAugment = wantedNoFilesPerClass - filesInEnv
+                augmentationRatio = noFilesToAugment/filesInEnv
+
             for speaker in self.getUniqueSpeakers(env):
                 speakerRecordings = self.getSpeakerRecordings(speaker, env)
                 if len(speakerRecordings)==0:
                     raise Exception("0 speaker {speaker} recordings for env {env}")
                 noRecordings = len(speakerRecordings)
-                if wantedNoFilesPerSpeaker is None:
-                    wantedAugmentationsPerFile = None
-                else:
-                    wantedAugmentationsPerFile = ceil(wantedNoFilesPerSpeaker/noRecordings)
-                    if wantedNoFilesPerSpeaker - noRecordings < 0 and wantedNoFilesPerSpeaker is not None:
-                        raise Exception(f"wantedNoFilesPerSpeaker == {wantedNoFilesPerSpeaker} but in base dataset there are already {noRecordings} number of recordings for env {env} and speaker {speaker}")
+                
                 for recording in speakerRecordings:
                     augmented_recording, infoString = compose_pipeline(recording, wantedAugmentationsPerFile)
                     #print(f"speaker_id: {augmented_recording.speaker_id}")
