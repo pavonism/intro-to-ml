@@ -7,7 +7,7 @@ from model_training.architectures import Architecture
 
 class ResNetArchitecture(Architecture):
     def __init__(self, out_features=30):
-        self.__model = models.resnet50(pretrained=True)
+        self.__model = models.resnet18(pretrained=True)
 
         # Freeze all layers except the final fully connected layer
         for param in self.__model.parameters():
@@ -21,11 +21,7 @@ class ResNetArchitecture(Architecture):
     def get_transform(self):
         return transforms.Compose(
             [
-                transforms.Resize(256, interpolation=3, antialias=True),
-                transforms.CenterCrop(224),
+                transforms.Resize((300, 400)),
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
             ]
         )
