@@ -11,33 +11,37 @@ from math import ceil
 import soundfile as sf
 import shutil
 import random
+import librosa
+from pedalboard import Pedalboard, Reverb
 
+
+def addReverb(audio, room_size=0.2, damping=0.7, wet_level=0.15, dry_level=0.85):
+    board = Pedalboard([
+    Reverb(
+        room_size=room_size,    # 0 to 1
+        damping=damping,      # 0 to 1
+        wet_level=wet_level,   # 0 to 1
+        dry_level=dry_level,    # 0 to 1
+    )
+    ])
+    audio.samples = board.process(audio.samples, audio.sample_rate)
+    return audio
+
+def getFirstSyllable(audio):
+    _audio = copy.deepcopy(audio)
+    
+    _, _interval = librosa.effects.trim(_audio.samples, top_db=15)
+    _interval[0] = max(_interval[0] - 40, 0)
+    _audio.samples = _audio.samples[_interval[0]:_interval[1]]
+    cutoff_point = int(len(_audio.samples) * 5/10)
+    _audio.samples = _audio.samples[:cutoff_point]
+    return _audio
 
 def addNoise(audio : audio_data.AudioData, noiseThreshold):
         y = audio.samples
         noise = np.random.normal(0, noiseThreshold, len(y))
         audio.samples = y + noise
         return audio
-    
-def addReverb(audio : audio_data.AudioData):
-    """
-    Add reverberation effect using audiomentations with correct parameters
-    """
-    reverb = audiomentations.RoomSimulator(
-        min_size_x=3.6,  # Minimum room width
-        max_size_x=5.6,  # Maximum room width
-        min_size_y=3.6,  # Minimum room depth
-        max_size_y=3.9,  # Maximum room depth
-        min_size_z=2.4,  # Minimum room height
-        max_size_z=3.0,  # Maximum room height
-        min_absorption_value=0.075,  # Minimum surface absorption
-        max_absorption_value=0.4,    # Maximum surface absorption
-        calculation_mode="absorption",  # Use absorption-based calculation
-        use_ray_tracing=True,        # Enable ray tracing for accuracy
-        max_order=1,                 # Maximum order of reflections
-        p=1.0                        # Probability of applying the effect
-    )
-    return reverb(samples=y, sample_rate=sr)
 
 def shift_and_pad(y, sr, shift_factor = 0.5):
     """
@@ -53,50 +57,37 @@ def shift_and_pad(y, sr, shift_factor = 0.5):
         shifted[shift_samples:] = 0
     return shifted, sr
 
-def change_pitch(y, sr, n_steps=4):
+def change_pitch(audio : audio_data.AudioData, n_steps=[-2, -1, 1, 2]):
     """
     Change pitch of audio
     y: audio signal
     sr: sample rate
-    n_steps: number of steps to shift pitch
+    n_steps: array cointaining number of steps to shift pitch. change_pitch() chooses one random value from array.
     """
-    return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
-
-def add_reverb(y, sr):
-    """
-    Add reverberation effect using audiomentations with correct parameters
-    """
-    reverb = audiomentations.RoomSimulator(
-        min_size_x=3.6,  # Minimum room width
-        max_size_x=5.6,  # Maximum room width
-        min_size_y=3.6,  # Minimum room depth
-        max_size_y=3.9,  # Maximum room depth
-        min_size_z=2.4,  # Minimum room height
-        max_size_z=3.0,  # Maximum room height
-        min_absorption_value=0.075,  # Minimum surface absorption
-        max_absorption_value=0.4,    # Maximum surface absorption
-        calculation_mode="absorption",  # Use absorption-based calculation
-        use_ray_tracing=True,        # Enable ray tracing for accuracy
-        max_order=1,                 # Maximum order of reflections
-        p=1.0                        # Probability of applying the effect
-    )
-    return reverb(samples=y, sample_rate=sr)
+    n_steps_choice = np.random.choice(n_steps)
+    audio.samples = librosa.effects.pitch_shift(audio.samples, sr=audio.sample_rate, n_steps=n_steps_choice)
+    return audio
 
 class AugmentAudio:
     def __init__(self, input_path):
         self.input_path = input_path
-        print(f"Loading audio files... {os.path.join(input_path, 'train', 'bed')}")
-        self.audioDataTrain = AudioLoader().load_data(os.path.join(input_path, 'train', 'bed'))
+        print(f"Loading audio files... {os.path.join(input_path, 'train')}")
+        self.audioDataTrain = AudioLoader().load_data(os.path.join(input_path, 'train'))
+        print(f"Loading audio files... {os.path.join(input_path, 'validation')}")
+        self.audioDataValidation = AudioLoader().load_data(os.path.join(input_path, 'validation'))
 
-    def getClassRecordingsCount(self, env):
-        count = 0
-        for audio in self.audioDataTrain:
-            #print(f"search env: {env}, speaker_env: {audio.class_id}")
+    def getClassRecordings(self, dataset_name, env):
+        if dataset_name == 'train':
+            audioList = self.audioDataTrain
+        if dataset_name == 'validation':
+            audioList = self.audioDataValidation
+
+        result = []
+        for audio in audioList:
             if audio.class_id == env:
-                count = count + 1
-        #len([audio for audio in self.audioDataTrain if audio.class_id == env])
-        print(f"env:{env} COUNT: {count}")
-        return count
+                result.append(audio)
+        print(f"env:{env} COUNT: {len(result)}")
+        return result
 
     def getUniqueSpeakers(self, env):
         a = self.audioDataTrain[0]
@@ -165,44 +156,40 @@ class AugmentAudio:
 
 
     
-    def augmentTrain(self, input_path : str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerClass):
+    def augmentDataset(self, input_path : str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerClass, fileTag):
         assert wantedNoFilesPerClass is not None
+        assert utils.AudioLoader.split_path(input_path, -1) in ['train', 'validation']
 
-        print("Augmenting train")
+        dataset_name = utils.AudioLoader.split_path(input_path, -1)
+
+        print(f"Augmenting {dataset_name}")
         for env in Environments.get_all_clean():
-            filesInEnv = self.getClassRecordingsCount(env)
-            if filesInEnv == 0:
+            filesInEnv = self.getClassRecordings(dataset_name, env)
+            if len(filesInEnv) == 0:
                 print(f"No files found in loaded dataset for env: {env}")
                 return
 
-            noFilesToAugment = wantedNoFilesPerClass - filesInEnv
-            augmentationRatio = noFilesToAugment/filesInEnv - 1
+            noFilesToAugment = wantedNoFilesPerClass - len(filesInEnv)
+            augmentationRatio = noFilesToAugment/len(filesInEnv)
 
             if augmentationRatio < 0:
                 print(f"WARNING: agumentationRatio less than 0: {augmentationRatio}\nNo need for data augmentation in env: {env}")
                 continue
+            
+            print(f"wantedNoFilesPerClass : {wantedNoFilesPerClass}, filesInEnv: {len(filesInEnv)}, augmentationRatio: {augmentationRatio}")
+            for recording in filesInEnv:
+                # saving original oudio
+                os.makedirs(os.path.join(output_path, env) , exist_ok=True)
+                pathToFolder = os.path.join(output_path, env)
+                pathToNotModified = self.joinAndNormPath(pathToFolder, recording.speaker_id.removesuffix(".wav") + '_original' + '.wav')
+                sf.write(pathToNotModified, recording.samples, recording.sample_rate)
 
-            for speaker in tqdm(self.getUniqueSpeakers(env)):
-                speakerRecordings = self.getSpeakerRecordings(speaker, env)
-                if len(speakerRecordings)==0:
-                    raise Exception("0 speaker {speaker} recordings for env {env}")
-                noRecordings = len(speakerRecordings)
-                
-                for recording in speakerRecordings:
-                    # saving original oudio
-                    os.makedirs(os.path.join(output_path, env) , exist_ok=True)
-                    pathToFolder = os.path.join(output_path, env)
-                    pathToNotModified = self.joinAndNormPath(pathToFolder, recording.speaker_id.removesuffix(".wav") + '_original' + '.wav')
-                    sf.write(pathToNotModified, recording.samples, recording.sample_rate)
-
-                    # augment recording based on augmentationRatio
-                    self.augmentAndSaveAudioFileMultiple(recording, compose_pipeline, pathToFolder, augmentationRatio)
-
-                    
+                # augment recording based on augmentationRatio
+                self.augmentAndSaveAudioFileMultiple(recording, compose_pipeline, pathToFolder, augmentationRatio)
                     
                     
     
-    def splitAugmentation(self, input_path: str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerClass):
+    def splitAugmentation(self, input_path: str, output_path : str, compose_pipeline : Compose, wantedNoFilesPerClassTrain :int, wantedNoFilesPerClassVal : int, fileTag = ""):
         """
         Makes sure that augmentation is only done on train.
 
@@ -211,15 +198,21 @@ class AugmentAudio:
         #Augmenting train
         _output_path = os.path.join(output_path, "train")
         train_path = os.path.join(input_path, "train")
-        self.augmentTrain(train_path, _output_path, compose_pipeline, wantedNoFilesPerClass)
+        self.augmentDataset(train_path, _output_path, compose_pipeline, wantedNoFilesPerClassTrain, fileTag)
 
-        print("Copying over test and validation sets")
+        #Augmenting validation
+        _output_path = os.path.join(output_path, "validation")
+        validation_path = os.path.join(input_path, "validation")
+        self.augmentDataset(validation_path, _output_path, compose_pipeline, wantedNoFilesPerClassVal, fileTag)
+
+        print("Copying over test set")
         for root, dirs, files in tqdm(os.walk(input_path)):
             train_test_val = utils.AudioLoader.split_path(root, -2)
-            if train_test_val in ["test", "validation"]:
+            if train_test_val in ["test"]:
                 for file in files:
+                    class_id = utils.AudioLoader.split_path(root, -1)
                     # if no directory create one
-                    _output_path = os.path.join(output_path, train_test_val)
+                    _output_path = os.path.join(output_path, train_test_val, class_id)
                     os.makedirs(_output_path, exist_ok=True)
                     shutil.copy2(os.path.join(root, file), os.path.join(_output_path, file))
             else:
@@ -229,9 +222,9 @@ class AugmentAudio:
         
 
     
-    def __call__(self, output_path: str, compose_pipeline : Compose, wantedNoFilesPerClass):
-        self.splitAugmentation(self.input_path, output_path, compose_pipeline, wantedNoFilesPerClass)
+    def __call__(self, output_path: str, compose_pipeline : Compose, wantedNoFilesPerClassTrain, wantedNoFilesPerClassVal, fileTag):
+        self.splitAugmentation(self.input_path, output_path, compose_pipeline, wantedNoFilesPerClassTrain, wantedNoFilesPerClassVal, fileTag)
         
 
-def augment_audio_files(input_path: str, output_path: str, transformation, wantedNoFilesPerClass):
-    AugmentAudio(input_path)(output_path, transformation, wantedNoFilesPerClass)
+def augment_audio_files(input_path: str, output_path: str, transformation, wantedNoFilesPerClassTrain, wantedNoFilesPerClassVal, fileTag = ""):
+    AugmentAudio(input_path)(output_path, transformation, wantedNoFilesPerClassTrain, wantedNoFilesPerClassVal, fileTag)

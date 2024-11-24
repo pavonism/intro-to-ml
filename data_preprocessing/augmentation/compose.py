@@ -34,11 +34,12 @@ class Compose:
             t, k = self.select_random_transformation()
             _audio = t(_audio)
             infoString = infoString + str(k)
-            
+
         if infoString == '':
             infoString = None
+        
         return _audio, infoString
 
     
     def __call__(self, audio, minOneAugmentation = None):
-        return self.augment(audio)
+        return self.augment(audio, minOneAugmentation)
