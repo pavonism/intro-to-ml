@@ -21,10 +21,10 @@ def get_speaker_to_files(input_path: str):
     return speaker_to_files
 
 
-def train_test_split(input_path: str, output_path: str):
-    os.makedirs(output_path, exist_ok=True)
+def gather_test_speakers(input_path: str):
+    all_test_speakers = set()
 
-    for word in tqdm(os.listdir(input_path)):
+    for word in os.listdir(input_path):
         if word == "_background_noise_":
             continue
 
@@ -32,13 +32,47 @@ def train_test_split(input_path: str, output_path: str):
         speaker_to_files = get_speaker_to_files(word_path)
         speakers = list(speaker_to_files.keys())
 
-        random.shuffle(speakers)
-        train_split = int(0.7 * len(speakers))
-        test_split = int(0.2 * len(speakers)) + train_split
+        already_tested_speakers = all_test_speakers.intersection(speakers)
+        speakers_without_tested = list(set(speakers) - already_tested_speakers)
 
-        train_speakers = speakers[:train_split]
-        test_speakers = speakers[train_split:test_split]
-        validation_speakers = speakers[test_split:]
+        test_split_ratio = (0.2 * len(speakers) - len(already_tested_speakers)) / len(
+            speakers_without_tested
+        )
+
+        random.shuffle(speakers_without_tested)
+        train_split = int(0.7 * len(speakers_without_tested))
+        test_split = int(test_split_ratio * len(speakers_without_tested)) + train_split
+
+        test_speakers = speakers_without_tested[train_split:test_split] + list(
+            already_tested_speakers
+        )
+
+        all_test_speakers.update(test_speakers)
+
+    return all_test_speakers
+
+
+def train_test_split(input_path: str, output_path: str):
+    os.makedirs(output_path, exist_ok=True)
+
+    all_test_speakers = gather_test_speakers(input_path)
+
+    for word in tqdm(os.listdir(input_path)):
+        if word == "_background_noise_":
+            continue
+
+        word_path = os.path.join(input_path, word)
+        speaker_to_files = get_speaker_to_files(word_path)
+
+        speakers = list(speaker_to_files.keys())
+        test_speakers = all_test_speakers.intersection(speakers)
+        speakers_without_tested = list(set(speakers) - set(test_speakers))
+
+        random.shuffle(speakers_without_tested)
+        train_split = int(0.9 * len(speakers_without_tested))
+
+        train_speakers = speakers_without_tested[:train_split]
+        validation_speakers = speakers_without_tested[train_split:]
 
         copy_files(
             output_path,
