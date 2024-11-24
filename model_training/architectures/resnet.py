@@ -6,8 +6,8 @@ from model_training.architectures import Architecture
 
 
 class ResNetArchitecture(Architecture):
-    def __init__(self, out_features=30):
-        self.__model = models.resnet18(pretrained=True)
+    def __init__(self, out_features=30, pretrained=True):
+        self.__model = models.resnet18(pretrained=pretrained)
 
         # Freeze all layers except the final fully connected layer
         for param in self.__model.parameters():
