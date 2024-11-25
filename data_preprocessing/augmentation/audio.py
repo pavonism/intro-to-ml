@@ -27,15 +27,21 @@ def addReverb(audio, room_size=0.2, damping=0.7, wet_level=0.15, dry_level=0.85)
     audio.samples = board.process(audio.samples, audio.sample_rate)
     return audio
 
-def getFirstSyllable(audio):
-    _audio = copy.deepcopy(audio)
-    
+def getFirstSyllable(_audio):
     _, _interval = librosa.effects.trim(_audio.samples, top_db=15)
     _interval[0] = max(_interval[0] - 40, 0)
     _audio.samples = _audio.samples[_interval[0]:_interval[1]]
     cutoff_point = int(len(_audio.samples) * 5/10)
     _audio.samples = _audio.samples[:cutoff_point]
     return _audio
+
+def dist_augm(audio,
+              min_distortion=0.13,
+              max_distortion=0.13,
+              p=1.0):
+    distort_transformer = audiomentations.TanhDistortion(min_distortion, max_distortion, p)
+    audio.samples = distort_transformer(audio.samples, audio.sample_rate)
+    return audio
 
 def addNoise(audio : audio_data.AudioData, noiseThreshold):
         y = audio.samples
@@ -169,7 +175,7 @@ class AugmentAudio:
                 print(f"No files found in loaded dataset for env: {env}")
                 return
 
-            noFilesToAugment = wantedNoFilesPerClass - len(filesInEnv)
+            noFilesToAugment = wantedNoFilesPerClass - 2* len(filesInEnv)
             augmentationRatio = noFilesToAugment/len(filesInEnv)
 
             if augmentationRatio < 0:
