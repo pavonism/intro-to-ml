@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -21,9 +21,15 @@ def Loop(
     validation_loader: torch.utils.data.DataLoader,
     device: torch.device,
     num_epochs: int,
+    optimizer: Literal["Adam", "SGD"],
+    learning_rate: float,
 ):
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    optimizer = (
+        optim.Adam(model.parameters(), lr=learning_rate)
+        if optimizer == "Adam"
+        else optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+    )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,

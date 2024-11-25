@@ -1,6 +1,6 @@
 import glob
 import os
-from typing import Dict
+from typing import Dict, Literal
 import torch
 from torch.utils.data import DataLoader
 from PIL import Image
@@ -33,6 +33,8 @@ class CNNClassifier:
         image_val_path: str,
         batch_size: int = 32,
         n_epochs: int = 5,
+        optimizer: Literal["Adam", "SGD"] = "SGD",
+        learning_rate: float = 0.001,
     ):
         validation_set = AudioDataset(image_val_path, transform=self.__transform)
         self.__validation_loader = DataLoader(
@@ -61,6 +63,8 @@ class CNNClassifier:
             validation_loader=self.__validation_loader,
             device=self.__device,
             num_epochs=n_epochs,
+            optimizer=optimizer,
+            learning_rate=learning_rate,
         )
 
     def predict(self, test_image_path: str) -> Dict[str, int]:
