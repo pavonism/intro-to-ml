@@ -4,6 +4,7 @@ from typing import Dict, Literal
 import torch
 from torch.utils.data import DataLoader
 from PIL import Image
+from tqdm import tqdm
 
 from model_training.architectures import Architecture
 from model_training.audio_dataset import AudioDataset
@@ -15,11 +16,14 @@ class CNNClassifier:
         self,
         path: str,
         architecture: Architecture,
+        device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
     ) -> None:
         self.__path = path
-        self.__device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.__device = device
         self.__model = architecture.get_model().to(self.__device)
         self.__transform = architecture.get_transform()
+        self.__image_train_path = ""
+        self.__image_val_path = ""
 
         os.makedirs(self.__path, exist_ok=True)
         model_path = f"{self.__path}/model.pth"
@@ -35,28 +39,45 @@ class CNNClassifier:
         n_epochs: int = 5,
         optimizer: Literal["Adam", "SGD"] = "SGD",
         learning_rate: float = 0.001,
+        momentum: float = 0.9,
     ):
-        validation_set = AudioDataset(image_val_path, transform=self.__transform)
-        self.__validation_loader = DataLoader(
-            validation_set,
-            batch_size=batch_size,
-            shuffle=True,
-        )
+        if self.__image_train_path != image_train_path:
+            self.__image_train_path = image_train_path
+            train_set = AudioDataset(
+                image_train_path,
+                transform=self.__transform,
+                device=self.__device,
+            )
+            self.__train_loader = DataLoader(
+                train_set,
+                num_workers=2,
+                batch_size=batch_size,
+                shuffle=True,
+                persistent_workers=True,
+            )
 
-        train_set = AudioDataset(image_train_path, transform=self.__transform)
-        self.__train_loader = DataLoader(
-            train_set,
-            batch_size=batch_size,
-            shuffle=True,
-        )
+        if self.__image_val_path != image_val_path:
+            self.__image_val_path = image_val_path
+            validation_set = AudioDataset(
+                image_val_path,
+                transform=self.__transform,
+                device=self.__device,
+            )
+            self.__validation_loader = DataLoader(
+                validation_set,
+                num_workers=2,
+                batch_size=batch_size,
+                shuffle=True,
+                persistent_workers=True,
+            )
 
         print(
             "Running training on GPU..."
-            if torch.cuda.is_available()
+            if "cuda" in self.__device
             else "Running training on CPU..."
         )
 
-        Loop(
+        validation_loss = Loop(
             model=self.__model,
             path=self.__path,
             train_loader=self.__train_loader,
@@ -65,7 +86,10 @@ class CNNClassifier:
             num_epochs=n_epochs,
             optimizer=optimizer,
             learning_rate=learning_rate,
+            momentum=momentum,
         )
+
+        return validation_loss
 
     def predict(self, test_image_path: str) -> Dict[str, int]:
         file_predictions = {}

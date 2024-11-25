@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import Literal
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -21,14 +21,15 @@ def Loop(
     validation_loader: torch.utils.data.DataLoader,
     device: torch.device,
     num_epochs: int,
-    optimizer: Literal["Adam", "SGD"],
     learning_rate: float,
+    momentum: float,
+    optimizer: Literal["Adam", "SGD"] = "SGD",
 ):
     criterion = nn.CrossEntropyLoss()
     optimizer = (
         optim.Adam(model.parameters(), lr=learning_rate)
         if optimizer == "Adam"
-        else optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+        else optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
     )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -44,13 +45,16 @@ def Loop(
     train_losses, val_losses = [], []
     val_loss_rising = 0
 
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in range(num_epochs):
         start_time = time.time()
 
         model.train()
         running_loss = 0.0
-        for images, labels in train_loader:
-            images, labels = images.to(device), labels.to(device)
+        for images, labels in tqdm(train_loader, desc="Training"):
+            images, labels = (
+                images.to(device, non_blocking=True),
+                labels.to(device, non_blocking=True),
+            )
 
             optimizer.zero_grad()
             outputs = model(images)
@@ -64,9 +68,11 @@ def Loop(
         model.eval()
         running_loss = 0.0
         with torch.no_grad():
-            for images, labels in validation_loader:
-                # Move inputs and labels to the device
-                images, labels = images.to(device), labels.to(device)
+            for images, labels in tqdm(validation_loader, desc="Validation"):
+                images, labels = (
+                    images.to(device, non_blocking=True),
+                    labels.to(device, non_blocking=True),
+                )
 
                 outputs = model(images)
                 loss = criterion(outputs, labels)
@@ -89,4 +95,4 @@ def Loop(
     print("Finished Training")
     torch.save(model.state_dict(), f"{path}/model.pth")
 
-    return model
+    return val_losses[-1]

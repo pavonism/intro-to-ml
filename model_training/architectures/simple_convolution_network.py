@@ -40,7 +40,6 @@ class SimpleConvolutionArchitecture(Architecture):
     def get_transform(self):
         return transforms.Compose(
             [
-                transforms.Resize((300, 400)),
                 transforms.ToTensor(),
                 *(
                     [KeepImageChannels(self.rgba_channels)]

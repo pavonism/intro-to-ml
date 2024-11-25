@@ -21,8 +21,8 @@ class AudioToSpectrogramConverter:
         size_in_pixels: tuple = (300, 400),
     ):
         DPI = 100
-        width_in_inches = size_in_pixels[0] / DPI
-        height_in_inches = size_in_pixels[1] / DPI
+        width_in_inches = (size_in_pixels[0] + 30) / DPI
+        height_in_inches = (size_in_pixels[1] + 30) / DPI
 
         y, sr = librosa.load(audio_path)
 
