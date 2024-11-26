@@ -119,8 +119,6 @@ class CNNClassifier:
             else:
                 file_predictions[file] = predictions.argmax()
 
-            file_predictions[file] = predictions.argmax()
-
         return file_predictions
 
     def __predict_image(self, image_path: str):
