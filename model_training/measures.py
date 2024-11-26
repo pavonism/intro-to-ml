@@ -8,9 +8,14 @@ import numpy as np
 from model_training.cnn_classifier import CNNClassifier
 
 
-def get_true_and_predicted_labels(model: CNNClassifier, path: str) -> Dict[str, int]:
+def get_true_and_predicted_labels(model: CNNClassifier, path: str, path_audio : str = None) -> Dict[str, int]:
+    """
+    When path_audio is specified, model makes two predictions:
+    1. On normal file
+    2. On file processed with function getFirstSyllable2
+    """
     true_labels = get_true_labels(path)
-    predictions = model.predict(path)
+    predictions = model.predict(path, path_audio)
 
     y_true = []
     y_pred = []

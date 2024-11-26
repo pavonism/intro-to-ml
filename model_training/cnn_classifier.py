@@ -5,10 +5,18 @@ import torch
 from torch.utils.data import DataLoader
 from PIL import Image
 from tqdm import tqdm
+import copy
+import librosa
+import soundfile as sf
+import numpy as np
 
 from model_training.architectures import Architecture
 from model_training.audio_dataset import AudioDataset
 from model_training.train_loop import Loop
+
+from backend.audio_to_spectrogram_converter import AudioToSpectrogramConverter
+from backend.spectrograms.utils import AudioLoader
+from data_preprocessing.augmentation import audio as audio_augmentations
 
 
 class CNNClassifier:
@@ -91,11 +99,26 @@ class CNNClassifier:
 
         return validation_loss
 
-    def predict(self, test_image_path: str) -> Dict[str, int]:
+    def predict(self, test_image_path: str, test_audio_path : str = None) -> Dict[str, int]:
         file_predictions = {}
 
         for file in glob.glob(f"{test_image_path}/**/**.png", recursive=True):
             predictions = self.__predict_image(file)
+
+            if test_audio_path is not None:
+                _audio_file = AudioLoader.split_path(file, -1).removesuffix(".png") + ".wav"
+                classid = AudioLoader().split_path(file, -2)
+                audio_path = f"{test_audio_path}/{classid}/{_audio_file}"
+                print(f"audio_path: {audio_path}")
+                audio = AudioLoader()._AudioLoader__load_audio(audio_path, "", "", "")
+                audio_augmented = audio_augmentations.getFirstSyllable2(audio, before=40, ratio = 0.6)
+                sf.write("training_file_augmented.wav", audio_augmented.samples, audio_augmented.sample_rate)
+                AudioToSpectrogramConverter(False).convert_file("training_file_augmented.wav", "training_file_augmented.png")
+                predictions_augmented = self.__predict_image("training_file_augmented.png")
+                file_predictions[file] = np.mean([predictions, predictions_augmented], axis = 0).argmax()
+            else:
+                file_predictions[file] = predictions.argmax()
+
             file_predictions[file] = predictions.argmax()
 
         return file_predictions
