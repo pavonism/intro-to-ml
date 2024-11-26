@@ -17,14 +17,14 @@ def optimize_hyperparameters(
             architecture,
         )
 
-        learning_rate = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+        learning_rate = trial.suggest_float("lr", 1e-3, 1e-1, log=True)
         momentum = trial.suggest_float("momentum", 0.5, 0.99)
-        batch_size = 96
+        batch_size = trial.suggest_int("batch_size", 32, 128)
 
         validation_loss = cnn_classifier.fit(
             image_train_path=f"{dataset_path}/train",
             image_val_path=f"{dataset_path}/validation",
-            n_epochs=5,
+            n_epochs=10,
             optimizer="SGD",
             learning_rate=learning_rate,
             momentum=momentum,
