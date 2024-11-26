@@ -11,6 +11,7 @@ from math import ceil
 import soundfile as sf
 import shutil
 import random
+import copy
 import librosa
 from pedalboard import Pedalboard, Reverb
 
@@ -34,6 +35,15 @@ def getFirstSyllable(_audio):
     cutoff_point = int(len(_audio.samples) * 5/10)
     _audio.samples = _audio.samples[:cutoff_point]
     return _audio
+
+def getFirstSyllable2(_audio, before = 40, ratio = 5/10):
+    __audio = copy.deepcopy(_audio)
+    _, _interval = librosa.effects.trim(__audio.samples, top_db=15)
+    _interval[0] = max(_interval[0] - before, 0)
+    __audio.samples = __audio.samples[_interval[0]:_interval[1]]
+    cutoff_point = int(len(__audio.samples) * ratio)
+    __audio.samples = __audio.samples[:cutoff_point]
+    return __audio
 
 def dist_augm(audio,
               min_distortion=0.13,
