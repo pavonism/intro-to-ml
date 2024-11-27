@@ -11,8 +11,9 @@ from backend.audio_data import AudioData
 
 
 class AudioToSpectrogramConverter:
-    def __init__(self):
-        matplotlib.use("Agg")
+    def __init__(self, use_agg: bool = True):
+        if use_agg:
+            matplotlib.use("Agg")
 
     def convert_file(
         self,
