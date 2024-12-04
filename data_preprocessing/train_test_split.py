@@ -5,6 +5,7 @@ import shutil
 import random
 
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
 
 
 def get_speaker_id(path: str):
@@ -52,14 +53,14 @@ def gather_test_speakers(input_path: str):
     return all_test_speakers
 
 
-def train_test_split(input_path: str, output_path: str):
+def train_test_split(input_path: str, output_path: str, n_jobs: int = 8):
     os.makedirs(output_path, exist_ok=True)
 
     all_test_speakers = gather_test_speakers(input_path)
 
-    for word in tqdm(os.listdir(input_path)):
+    def process_word(word):
         if word == "_background_noise_":
-            continue
+            return
 
         word_path = os.path.join(input_path, word)
         speaker_to_files = get_speaker_to_files(word_path)
@@ -95,6 +96,11 @@ def train_test_split(input_path: str, output_path: str):
             validation_speakers,
             "validation",
         )
+
+    words = [word for word in os.listdir(input_path) if word != "_background_noise_"]
+
+    with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+        list(tqdm(executor.map(process_word, words), total=len(words)))
 
 
 def copy_files(
