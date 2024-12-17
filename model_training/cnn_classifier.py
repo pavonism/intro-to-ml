@@ -13,7 +13,7 @@ import numpy as np
 from data_preprocessing.spectrogram_sharpener import sharpen_spectrogram
 from model_training.architectures import Architecture
 from model_training.audio_dataset import AudioDataset
-from model_training.train_loop import Loop
+from model_training.trainer import Trainer
 
 from backend.audio_to_spectrogram_converter import AudioToSpectrogramConverter
 from backend.spectrograms.utils import AudioLoader
@@ -26,6 +26,7 @@ class CNNClassifier:
         path: str,
         architecture: Architecture,
         device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
+        epoch_checkpoints: bool = False,
     ) -> None:
         self.__path = path
         self.__device = device
@@ -33,6 +34,7 @@ class CNNClassifier:
         self.__transform = architecture.get_transform()
         self.__image_train_path = ""
         self.__image_val_path = ""
+        self._epoch_checkpoints = epoch_checkpoints
 
         os.makedirs(self.__path, exist_ok=True)
         model_path = f"{self.__path}/model.pth"
@@ -49,6 +51,7 @@ class CNNClassifier:
         optimizer: Literal["Adam", "SGD"] = "SGD",
         learning_rate: float = 0.001,
         momentum: float = 0.9,
+        measure_layer_robusness: bool = False,
     ):
         if self.__image_train_path != image_train_path:
             self.__image_train_path = image_train_path
@@ -59,7 +62,7 @@ class CNNClassifier:
             )
             self.__train_loader = DataLoader(
                 train_set,
-                num_workers=2,
+                num_workers=8,
                 batch_size=batch_size,
                 shuffle=True,
                 persistent_workers=True,
@@ -74,7 +77,7 @@ class CNNClassifier:
             )
             self.__validation_loader = DataLoader(
                 validation_set,
-                num_workers=2,
+                num_workers=8,
                 batch_size=batch_size,
                 shuffle=True,
                 persistent_workers=True,
@@ -86,19 +89,24 @@ class CNNClassifier:
             else "Running training on CPU..."
         )
 
-        validation_loss = Loop(
+        trainer = Trainer(
             model=self.__model,
             path=self.__path,
             train_loader=self.__train_loader,
             validation_loader=self.__validation_loader,
             device=self.__device,
-            num_epochs=n_epochs,
             optimizer=optimizer,
             learning_rate=learning_rate,
             momentum=momentum,
         )
 
-        return validation_loss
+        validation_loss, layer_robustness_results = trainer.run(
+            num_epochs=n_epochs,
+            epoch_checkpoints=self._epoch_checkpoints,
+            measure_layer_robusness=measure_layer_robusness,
+        )
+
+        return validation_loss, layer_robustness_results
 
     def predict(
         self, test_image_path: str, test_audio_path: str = None
