@@ -1,4 +1,5 @@
-from typing import Literal
+from typing import Literal, Optional
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,6 +20,7 @@ class Trainer:
         learning_rate: float,
         momentum: float,
         optimizer: Literal["Adam", "SGD"] = "SGD",
+        measure_layer_robusness_step: Optional[int] = None,
     ):
         self._model = model
         self._path = path
@@ -28,6 +30,11 @@ class Trainer:
         self._learning_rate = learning_rate
         self._momentum = momentum
         self._optimizer = optimizer
+
+        self._measure_layer_robustness_step = measure_layer_robusness_step
+        self._total_steps = 0
+        self._total_epochs = 0
+        self.layer_robustness_results = []
 
     def _save_results(self, train_loss: float, val_loss: float):
         with open(f"{self._path}/train_losses.csv", "a") as f:
@@ -39,8 +46,6 @@ class Trainer:
     def run(
         self,
         num_epochs: int,
-        epoch_checkpoints: bool = False,
-        measure_layer_robusness: bool = False,
     ):
         criterion = nn.CrossEntropyLoss()
         optimizer = (
@@ -68,11 +73,12 @@ class Trainer:
 
         train_losses, val_losses = [], []
         val_loss_rising = 0
-        initial_state = copy.deepcopy(self._model.state_dict())
-        layer_robustness_results = []
+        self._initial_state = copy.deepcopy(self._model.state_dict())
 
-        if epoch_checkpoints:
-            torch.save(self._model.state_dict(), f"{self._path}/model_0.pth")
+        if self._measure_layer_robustness_step:
+            torch.save(
+                self._model.state_dict(), f"{self._path}/model_{self._total_steps}.pth"
+            )
 
         for epoch in range(num_epochs):
             start_time = time.time()
@@ -85,18 +91,10 @@ class Trainer:
                     0 if val_loss < val_losses[-1] else val_loss_rising + 1
                 )
 
-            if epoch_checkpoints:
-                torch.save(
-                    self._model.state_dict(), f"{self._path}/model_{epoch + 1}.pth"
-                )
-
             train_losses.append(train_loss)
             val_losses.append(val_loss)
             scheduler.step(val_loss)
-
-            if measure_layer_robusness:
-                results = self._measure_layer_robustness(initial_state, epoch)
-                layer_robustness_results.extend(results)
+            self._total_epochs += 1
 
             print(f"Epoch {epoch} Done after {time.time() - start_time} seconds")
             self._save_results(train_loss, val_loss)
@@ -108,11 +106,17 @@ class Trainer:
                 break
 
         print("Finished Training")
-        torch.save(self._model.state_dict(), f"{self._path}/model.pth")
+        torch.save(
+            self._model.state_dict(), f"{self._path}/model_{self._total_steps}.pth"
+        )
 
-        return val_losses[-1], layer_robustness_results
+        return val_losses[-1]
 
-    def _train(self, criterion, optimizer):
+    def _train(
+        self,
+        criterion: nn.Module,
+        optimizer: torch.optim.Optimizer,
+    ):
         self._model.train()
         running_loss = 0.0
         for images, labels in tqdm(self._train_loader, desc="Training"):
@@ -127,6 +131,15 @@ class Trainer:
             loss.backward()
             optimizer.step()
             running_loss += loss.item() * labels.size(0)
+            self._total_steps += 1
+
+            if (
+                self._measure_layer_robustness_step
+                and self._total_steps % self._measure_layer_robustness_step == 0
+            ):
+                print("Measuring layer robustness...")
+                self._measure_layer_robustness()
+
         train_loss = running_loss / len(self._train_loader.dataset)
         return train_loss
 
@@ -153,7 +166,7 @@ class Trainer:
         with torch.no_grad():
             for images, labels in tqdm(self._validation_loader, desc="Evaluating"):
                 images, labels = images.to(self._device), labels.to(self._device)
-                outputs = F.softmax(self._model(images))
+                outputs = F.softmax(self._model(images), dim=1)
                 predicted = torch.argmax(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
@@ -162,31 +175,81 @@ class Trainer:
 
     def _measure_layer_robustness(
         self,
-        initial_state: dict,
-        epoch: int,
     ):
         eval_accuracy = self._evaluate()
 
-        results = []
         real_state = copy.deepcopy(self._model.state_dict())
         for layer in real_state.keys():
+            if "weight" not in layer:
+                continue
+
             current_state = copy.deepcopy(real_state)
-            current_state[layer] = initial_state[layer].clone()
+            current_state[layer] = self._initial_state[layer].clone()
             self._model.load_state_dict(current_state)
             init_acc = self._evaluate()
 
-            current_state[layer] = torch.randn_like(initial_state[layer])
+            mean, std = self.get_mean_std_for_layer(real_state[layer])
+            current_state[layer] = torch.normal(
+                mean,
+                std,
+                size=self._initial_state[layer].size(),
+                device=self._device,
+            )
             self._model.load_state_dict(current_state)
             rnd_acc = self._evaluate()
 
             result_dict = dict(
-                epoch=epoch,
+                step=self._total_steps,
+                epoch=self._total_epochs,
                 layer=layer,
                 base_accuracy=eval_accuracy,
                 init_accuracy=init_acc,
                 random_accuracy=rnd_acc,
             )
-            results.append(result_dict)
+            self.layer_robustness_results.append(result_dict)
 
         self._model.load_state_dict(real_state)
-        return results
+
+        print("Saving weights...")
+        torch.save(
+            self._model.state_dict(), f"{self._path}/model_{self._total_steps}.pth"
+        )
+
+        self._model.train()
+
+    def get_mean_std_for_layer(self, weights: torch.Tensor):
+        weights = weights.cpu().detach().numpy().flatten()
+        bins = int(np.sqrt(len(weights)))
+
+        mean = np.mean(weights)
+        std = np.std(weights)
+
+        bin_counts, hist_edges = np.histogram(weights, bins=bins)
+        outlayer_bin_counts = [
+            bin_counts[i]
+            for i in range(bins)
+            if mean - 2 * std > hist_edges[i] or hist_edges[i] > mean + 2 * std
+        ]
+
+        if len(outlayer_bin_counts) == 0:
+            return mean, std
+
+        mean_outlayer_bin_count = np.mean(outlayer_bin_counts)
+        bin_counts = bin_counts - mean_outlayer_bin_count
+        bin_counts[bin_counts < 0] = 0
+
+        filtered_mean = (
+            sum([hist_edges[i] * bin_counts[i] for i in range(bins)]) / bin_counts.sum()
+        )
+
+        filtered_std = np.sqrt(
+            np.sum(
+                [
+                    bin_counts[i] * (hist_edges[i] - filtered_mean) ** 2
+                    for i in range(bins)
+                ]
+            )
+            / bin_counts.sum()
+        )
+
+        return filtered_mean, filtered_std

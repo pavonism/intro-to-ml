@@ -1,6 +1,6 @@
 import glob
 import os
-from typing import Dict, Literal
+from typing import Dict, Literal, Optional
 import torch
 from torch.utils.data import DataLoader
 from PIL import Image
@@ -26,7 +26,6 @@ class CNNClassifier:
         path: str,
         architecture: Architecture,
         device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
-        epoch_checkpoints: bool = False,
     ) -> None:
         self.__path = path
         self.__device = device
@@ -34,7 +33,6 @@ class CNNClassifier:
         self.__transform = architecture.get_transform()
         self.__image_train_path = ""
         self.__image_val_path = ""
-        self._epoch_checkpoints = epoch_checkpoints
 
         os.makedirs(self.__path, exist_ok=True)
         model_path = f"{self.__path}/model.pth"
@@ -51,7 +49,7 @@ class CNNClassifier:
         optimizer: Literal["Adam", "SGD"] = "SGD",
         learning_rate: float = 0.001,
         momentum: float = 0.9,
-        measure_layer_robusness: bool = False,
+        measure_layer_robusness_step: Optional[int] = None,
     ):
         if self.__image_train_path != image_train_path:
             self.__image_train_path = image_train_path
@@ -98,15 +96,12 @@ class CNNClassifier:
             optimizer=optimizer,
             learning_rate=learning_rate,
             momentum=momentum,
+            measure_layer_robusness_step=measure_layer_robusness_step,
         )
 
-        validation_loss, layer_robustness_results = trainer.run(
-            num_epochs=n_epochs,
-            epoch_checkpoints=self._epoch_checkpoints,
-            measure_layer_robusness=measure_layer_robusness,
-        )
+        validation_loss = trainer.run(n_epochs)
 
-        return validation_loss, layer_robustness_results
+        return validation_loss, trainer.layer_robustness_results
 
     def predict(
         self, test_image_path: str, test_audio_path: str = None
