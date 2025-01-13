@@ -8,7 +8,9 @@ import numpy as np
 from model_training.cnn_classifier import CNNClassifier
 
 
-def get_true_and_predicted_labels(model: CNNClassifier, path: str, path_audio : str = None) -> Dict[str, int]:
+def get_true_and_predicted_labels(
+    model: CNNClassifier, path: str, path_audio: str = None
+) -> Dict[str, int]:
     """
     When path_audio is specified, model makes two predictions:
     1. On normal file
@@ -100,15 +102,14 @@ def weighted_f1_score(y_true: List[int], y_pred: List[int]) -> float:
 
 
 def f1_score(y_true: List[int], y_pred: List[int], average: str = "macro") -> float:
-    match average:
-        case "micro":
-            return micro_f1_score(y_true, y_pred)
-        case "macro":
-            return macro_f1_score(y_true, y_pred)
-        case "weighted":
-            return weighted_f1_score(y_true, y_pred)
-        case _:
-            raise ValueError("Invalid average type")
+    if average == "micro":
+        return micro_f1_score(y_true, y_pred)
+    elif average == "macro":
+        return macro_f1_score(y_true, y_pred)
+    elif average == "weighted":
+        return weighted_f1_score(y_true, y_pred)
+    else:
+        raise ValueError("Invalid average type")
 
 
 def confusion_matrix(y_true: List[int], y_pred: List[int]):

@@ -4,7 +4,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog
 from backend.audio_recorder import AudioRecorder
-from backend.intercom_classifier import IntercomClassifier
+from backend.intercom_classifier import WordAudioClassifier
 
 
 def run_app():
@@ -18,16 +18,11 @@ def run_app():
 
     def wait_for_classification():
         global file_name
-        result = IntercomClassifier().predict_audio(file_name)
+        result = WordAudioClassifier().predict_word(file_name)
 
         text_output.delete("1.0", tk.END)
 
-        if result:
-            text_output.insert(tk.END, "Pass granted.\n")
-            text_output.tag_config("green", foreground="green")
-        else:
-            text_output.insert(tk.END, "Access denied.\n")
-            text_output.tag_config("red", foreground="red")
+        text_output.insert(tk.END, result)
 
     def check_recording():
         global file_name

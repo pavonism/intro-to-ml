@@ -3,15 +3,15 @@ import tempfile
 from backend.audio_cleaner import AudioCleaner
 from backend.audio_to_spectrogram_converter import AudioToSpectrogramConverter
 from backend.spectrogram_classifier import SpectrogramClassifier
-from backend.spectrogram_cleaner import SpectrogramCleaner
+from backend.spectrogram_sharpener import SpectrogramSharpener
 
 
-class IntercomClassifier:
+class WordAudioClassifier:
     def __init__(
         self,
         audio_cleaner: AudioCleaner = AudioCleaner(),
         audio_to_spectrogram_converter: AudioToSpectrogramConverter = AudioToSpectrogramConverter(),
-        spectrogram_cleaner: SpectrogramCleaner = SpectrogramCleaner(),
+        spectrogram_cleaner: SpectrogramSharpener = SpectrogramSharpener(),
         spectrogram_classifier: SpectrogramClassifier = SpectrogramClassifier(),
     ):
         self.audio_cleaner = audio_cleaner
@@ -19,16 +19,22 @@ class IntercomClassifier:
         self.spectrogram_cleaner = spectrogram_cleaner
         self.spectrogram_classifier = spectrogram_classifier
 
-    def predict_audio(self, path: str) -> bool:
-        self.audio_cleaner.clean(path)
-        spectrogram_file = self.get_temp_spectrogram_path()
-        print(path, spectrogram_file)
-        self.audio_to_spectrogram_converter.convert_file(path, spectrogram_file)
-        self.spectrogram_cleaner.clean(spectrogram_file)
-        result = self.spectrogram_classifier.predict(spectrogram_file)
+    def predict_word(self, path: str) -> str:
+        cleaned_file = self.get_temp_cleaned_audio_path()
+        self.audio_cleaner.clean_audio_file(path, cleaned_file)
+        spec_file = self.get_temp_spectrogram_path()
+        print(cleaned_file, spec_file)
+        self.audio_to_spectrogram_converter.convert_file(cleaned_file, spec_file)
+        self.spectrogram_cleaner.sharpen_spectrogram_file(spec_file, spec_file)
+        result = self.spectrogram_classifier.predict(spec_file)
         # self.remove_temp_spectrogram(spectrogram_file)
 
         return result
+
+    def get_temp_cleaned_audio_path(self) -> str:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
+            temp_file_path = temp_file.name
+            return temp_file_path
 
     def get_temp_spectrogram_path(self) -> str:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:

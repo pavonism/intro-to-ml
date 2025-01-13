@@ -5,12 +5,10 @@ import torch
 from torch.utils.data import DataLoader
 from PIL import Image
 from tqdm import tqdm
-import copy
-import librosa
 import soundfile as sf
 import numpy as np
 
-from data_preprocessing.spectrogram_sharpener import sharpen_spectrogram
+from data_preprocessing.spectrogram_sharpener import SpectrogramSharpener
 from model_training.architectures import Architecture
 from model_training.audio_dataset import AudioDataset
 from model_training.trainer import Trainer
@@ -36,9 +34,10 @@ class CNNClassifier:
 
         os.makedirs(self.__path, exist_ok=True)
         model_path = f"{self.__path}/model.pth"
-        if os.path.exists(model_path) == True:
+        if os.path.exists(model_path):
             self.__model.load_state_dict(torch.load(model_path, weights_only=True))
             self.__model.eval()
+            print("Model loaded successfully")
 
     def fit(
         self,
@@ -109,9 +108,10 @@ class CNNClassifier:
         file_predictions = {}
 
         for file in tqdm(glob.glob(f"{test_image_path}/**/**.png", recursive=True)):
-            predictions = self.__predict_image(file)
+            predictions = self.predict_image(file)
 
             if test_audio_path is not None:
+                sharpener = SpectrogramSharpener()
                 _audio_file = (
                     AudioLoader.split_path(file, -1).removesuffix(".png") + ".wav"
                 )
@@ -129,21 +129,22 @@ class CNNClassifier:
                 AudioToSpectrogramConverter(False).convert_file(
                     "training_file_augmented.wav", "training_file_augmented.png"
                 )
-                sharpen_spectrogram(Image.open("training_file_augmented.png")).save(
-                    "training_file_augmented.png"
-                )
-                predictions_augmented = self.__predict_image(
+                sharpener.sharpen_spectrogram(
+                    Image.open("training_file_augmented.png")
+                ).save("training_file_augmented.png")
+                predictions_augmented = self.predict_image(
                     "training_file_augmented.png"
                 )
                 file_predictions[file] = np.mean(
                     [predictions, predictions_augmented], axis=0
                 ).argmax()
             else:
+                print(predictions)
                 file_predictions[file] = predictions.argmax()
 
         return file_predictions
 
-    def __predict_image(self, image_path: str):
+    def predict_image(self, image_path: str):
         image = Image.open(image_path).convert("RGB")
         image_tensor = self.__transform(image).unsqueeze(0)
 
