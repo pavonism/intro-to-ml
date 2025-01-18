@@ -1,4 +1,4 @@
-import os
+from typing import List, Tuple
 from model_training.architectures.simple_convolution_network import (
     SimpleConvolutionArchitecture,
 )
@@ -6,18 +6,14 @@ from model_training.cnn_classifier import CNNClassifier
 
 
 class SpectrogramClassifier:
-    def __init__(self):
-        self.class_labels = os.listdir("data/tsrc_spectrograms_cleaned/train")
+    def __init__(self, class_labels: List[str], model_path: str):
+        self.class_labels = class_labels
         self.model = CNNClassifier(
-            path="models/robustness_3_single_cnn_tsrc_spectrograms_cleaned_augmented_sharpened/",
+            path=model_path,
             architecture=SimpleConvolutionArchitecture(),
         )
 
-    def predict(self, path: str) -> str:
+    def predict(self, path: str) -> Tuple[str, List[float]]:
         predictions = self.model.predict_image(path)
-
-        for i, pred in enumerate(predictions):
-            print(f"{self.class_labels[i]}: {pred:.4f}")
-
         cls = predictions.argmax()
-        return self.class_labels[cls]
+        return self.class_labels[cls], predictions

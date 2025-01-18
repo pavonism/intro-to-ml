@@ -1,6 +1,6 @@
+import os
 import tempfile
 import threading
-import time
 import tkinter as tk
 from tkinter import filedialog
 from backend.audio_recorder import AudioRecorder
@@ -18,7 +18,11 @@ def run_app():
 
     def wait_for_classification():
         global file_name
-        result = WordAudioClassifier().predict_word(file_name)
+        result = WordAudioClassifier(
+            class_labels=os.listdir("data/tsrc_spectrograms_cleaned/train"),
+            model_path="models/robustness_3_single_cnn_tsrc_spectrograms_cleaned_augmented_sharpened/",
+            verbose=True,
+        ).predict_word(file_name)
 
         text_output.delete("1.0", tk.END)
 
