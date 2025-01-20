@@ -111,29 +111,8 @@ class CNNClassifier:
             predictions = self.predict_image(file)
 
             if test_audio_path is not None:
-                sharpener = SpectrogramSharpener()
-                _audio_file = (
-                    AudioLoader.split_path(file, -1).removesuffix(".png") + ".wav"
-                )
-                classid = AudioLoader().split_path(file, -2)
-                audio_path = f"{test_audio_path}/{classid}/{_audio_file}"
-                audio = AudioLoader()._AudioLoader__load_audio(audio_path, "", "", "")
-                audio_augmented = audio_augmentations.getFirstSyllable2(
-                    audio, before=40, ratio=0.6
-                )
-                sf.write(
-                    "training_file_augmented.wav",
-                    audio_augmented.samples,
-                    audio_augmented.sample_rate,
-                )
-                AudioToSpectrogramConverter(False).convert_file(
-                    "training_file_augmented.wav", "training_file_augmented.png"
-                )
-                sharpener.sharpen_spectrogram(
-                    Image.open("training_file_augmented.png")
-                ).save("training_file_augmented.png")
-                predictions_augmented = self.predict_image(
-                    "training_file_augmented.png"
+                predictions_augmented = self._predict_with_augmentation(
+                    test_audio_path, file
                 )
                 file_predictions[file] = np.mean(
                     [predictions, predictions_augmented], axis=0
@@ -143,6 +122,30 @@ class CNNClassifier:
                 file_predictions[file] = predictions.argmax()
 
         return file_predictions
+
+    def _predict_with_augmentation(self, test_audio_path, file):
+        sharpener = SpectrogramSharpener()
+        _audio_file = AudioLoader.split_path(file, -1).removesuffix(".png") + ".wav"
+        classid = AudioLoader().split_path(file, -2)
+        audio_path = f"{test_audio_path}/{classid}/{_audio_file}"
+        audio = AudioLoader()._AudioLoader__load_audio(audio_path, "", "", "")
+        audio_augmented = audio_augmentations.getFirstSyllable2(
+            audio, before=40, ratio=0.6
+        )
+        sf.write(
+            "training_file_augmented.wav",
+            audio_augmented.samples,
+            audio_augmented.sample_rate,
+        )
+        AudioToSpectrogramConverter(False).convert_file(
+            "training_file_augmented.wav", "training_file_augmented.png"
+        )
+        sharpener.sharpen_spectrogram(Image.open("training_file_augmented.png")).save(
+            "training_file_augmented.png"
+        )
+        predictions_augmented = self.predict_image("training_file_augmented.png")
+
+        return predictions_augmented
 
     def predict_image(self, image_path: str):
         image = Image.open(image_path).convert("RGB")
