@@ -20,6 +20,7 @@ class WordAudioClassifier:
         self.audio_cleaner = audio_cleaner
         self.audio_to_spectrogram_converter = audio_to_spectrogram_converter
         self.spectrogram_cleaner = spectrogram_cleaner
+        self.class_labels = class_labels
         self.spectrogram_classifier = SpectrogramClassifier(
             class_labels=class_labels,
             model_path=model_path,
