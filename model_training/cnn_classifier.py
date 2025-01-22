@@ -25,18 +25,19 @@ class CNNClassifier:
         architecture: Architecture,
         device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
     ) -> None:
-        self.__path = path
-        self.__device = device
-        self.__model = architecture.get_model().to(self.__device)
-        self.__transform = architecture.get_transform()
-        self.__image_train_path = ""
-        self.__image_val_path = ""
+        self._path = path
+        self._device = device
+        self._model = architecture.get_model().to(self._device)
+        self._model_for_prediction = torch.jit.script(self._model)
+        self._transform = architecture.get_transform()
+        self._image_train_path = ""
+        self._image_val_path = ""
 
-        os.makedirs(self.__path, exist_ok=True)
-        model_path = f"{self.__path}/model.pth"
+        os.makedirs(self._path, exist_ok=True)
+        model_path = f"{self._path}/model.pth"
         if os.path.exists(model_path):
-            self.__model.load_state_dict(torch.load(model_path, weights_only=True))
-            self.__model.eval()
+            self._model.load_state_dict(torch.load(model_path, weights_only=True))
+            self._model.eval()
             print("Model loaded successfully")
 
     def fit(
@@ -50,12 +51,12 @@ class CNNClassifier:
         momentum: float = 0.9,
         measure_layer_robusness_step: Optional[int] = None,
     ):
-        if self.__image_train_path != image_train_path:
-            self.__image_train_path = image_train_path
+        if self._image_train_path != image_train_path:
+            self._image_train_path = image_train_path
             train_set = AudioDataset(
                 image_train_path,
-                transform=self.__transform,
-                device=self.__device,
+                transform=self._transform,
+                device=self._device,
             )
             self.__train_loader = DataLoader(
                 train_set,
@@ -65,12 +66,12 @@ class CNNClassifier:
                 persistent_workers=True,
             )
 
-        if self.__image_val_path != image_val_path:
-            self.__image_val_path = image_val_path
+        if self._image_val_path != image_val_path:
+            self._image_val_path = image_val_path
             validation_set = AudioDataset(
                 image_val_path,
-                transform=self.__transform,
-                device=self.__device,
+                transform=self._transform,
+                device=self._device,
             )
             self.__validation_loader = DataLoader(
                 validation_set,
@@ -82,16 +83,16 @@ class CNNClassifier:
 
         print(
             "Running training on GPU..."
-            if "cuda" in self.__device
+            if "cuda" in self._device
             else "Running training on CPU..."
         )
 
         trainer = Trainer(
-            model=self.__model,
-            path=self.__path,
+            model=self._model,
+            path=self._path,
             train_loader=self.__train_loader,
             validation_loader=self.__validation_loader,
-            device=self.__device,
+            device=self._device,
             optimizer=optimizer,
             learning_rate=learning_rate,
             momentum=momentum,
@@ -149,12 +150,12 @@ class CNNClassifier:
 
     def predict_image(self, image_path: str):
         image = Image.open(image_path).convert("RGB")
-        image_tensor = self.__transform(image).unsqueeze(0)
+        image_tensor = self._transform(image).unsqueeze(0)
 
-        self.__model.eval()
+        self._model.eval()
         with torch.no_grad():
-            image_tensor = image_tensor.to(self.__device)
-            outputs = self.__model(image_tensor)
+            image_tensor = image_tensor.to(self._device)
+            outputs = self._model_for_prediction(image_tensor)
             probabilities = torch.nn.functional.softmax(outputs, dim=1)
 
         return probabilities.cpu().numpy().flatten()

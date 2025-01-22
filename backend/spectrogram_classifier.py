@@ -6,7 +6,11 @@ from model_training.cnn_classifier import CNNClassifier
 
 
 class SpectrogramClassifier:
-    def __init__(self, class_labels: List[str], model_path: str):
+    def __init__(
+        self,
+        class_labels: List[str],
+        model_path: str,
+    ):
         self.class_labels = class_labels
         self.model = CNNClassifier(
             path=model_path,
@@ -14,6 +18,16 @@ class SpectrogramClassifier:
         )
 
     def predict(self, path: str) -> Tuple[str, List[float]]:
+        """
+        Predicts the class of a spectrogram image.
+
+        Parameters:
+        path (str): Path to the spectrogram image.
+
+        Returns:
+        Tuple[str, List[float]]: Predicted class and list of
+            probabilities for each class.
+        """
         predictions = self.model.predict_image(path)
         cls = predictions.argmax()
         return self.class_labels[cls], predictions

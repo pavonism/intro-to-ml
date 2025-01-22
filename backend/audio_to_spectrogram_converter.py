@@ -34,17 +34,6 @@ class AudioToSpectrogramConverter:
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
         librosa.display.specshow(spec, sr=sr)
 
-        # TODO: Convert this to mel spectrogram (??)
-        # mel_spect = librosa.feature.melspectrogram(
-        #     y=y,
-        #     sr=sr,
-        #     n_fft=2048,
-        #     hop_length=1024,
-        # )
-
-        # mel_spect = librosa.power_to_db(spec, ref=np.max)
-        # librosa.display.specshow(mel_spect)
-
         plt.axis("off")
         plt.tight_layout()
         plt.savefig(

@@ -1,6 +1,7 @@
-# Intercom Audio Classifier - Intro to ML course project 
+# Word Audio Classifier - Intro to ML course project
+
 The goal of the project is to prepare a machine learning module that can be hypothetically
-used in an automated, voice-based intercom device.
+used as a word classifier.
 
 # Setup
 
@@ -8,27 +9,33 @@ used in an automated, voice-based intercom device.
 $ python -m venv venv
 $ venv/bin/activate (Linux) ./venv/Scripts/activate (Win)
 $ pip install -e .
-``` 
+```
 
 Additionally, you have to install Torch for cuda by yourself:
 
-```console 
+```console
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-# Run 
+# Run
+
+The app runs on a GPU if CUDA is available; otherwise, it uses the CPU.
 
 ```console
 $ python frontend
-``` 
+```
 
 ## 🌳 Project structure
+
 ```bash
 │   .gitignore # Files to ignore
 │   README.md # This file
 │   pyproject.toml # Project configuration file
-├───data
+├───data # Datasets
 ├───scripts # Notebooks
-├───frontend # Basic frontend application 
-└───backend # All application logic
+├───frontend # Basic frontend application
+├───backend # All application logic
+├───data_preprocessing # Preprocessing logic
+├───model_training # Training logic
+└───models # Model checkpoints
 ```

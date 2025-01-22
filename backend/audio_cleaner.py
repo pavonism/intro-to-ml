@@ -33,7 +33,7 @@ class AudioCleaner:
 
         return y, sr
 
-    def clean_audio_file(self, input_path, output_path):
+    def clean_audio_file(self, input_path: str, output_path: str):
         y, sr = librosa.load(input_path, sr=None)
         y, sr = self._clean_audio(y, sr)
 

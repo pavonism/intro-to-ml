@@ -1,4 +1,3 @@
-import os
 import tempfile
 from backend.audio_cleaner import AudioCleaner
 from backend.audio_to_spectrogram_converter import AudioToSpectrogramConverter
@@ -27,9 +26,9 @@ class WordAudioClassifier:
         )
 
     def predict_word(self, path: str) -> str:
-        cleaned_file = self.get_temp_cleaned_audio_path()
+        cleaned_file = self._get_temp_cleaned_audio_path()
         self.audio_cleaner.clean_audio_file(path, cleaned_file)
-        spec_file = self.get_temp_spectrogram_path()
+        spec_file = self._get_temp_spectrogram_path()
 
         if self._verbose:
             print(cleaned_file, spec_file)
@@ -37,7 +36,6 @@ class WordAudioClassifier:
         self.audio_to_spectrogram_converter.convert_file(cleaned_file, spec_file)
         self.spectrogram_cleaner.sharpen_spectrogram_file(spec_file, spec_file)
         result, probas = self.spectrogram_classifier.predict(spec_file)
-        # self.remove_temp_spectrogram(spectrogram_file)
 
         if self._verbose:
             for i, pred in enumerate(probas):
@@ -45,15 +43,12 @@ class WordAudioClassifier:
 
         return result
 
-    def get_temp_cleaned_audio_path(self) -> str:
+    def _get_temp_cleaned_audio_path(self) -> str:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
             temp_file_path = temp_file.name
             return temp_file_path
 
-    def get_temp_spectrogram_path(self) -> str:
+    def _get_temp_spectrogram_path(self) -> str:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
             temp_file_path = temp_file.name
             return temp_file_path
-
-    def remove_temp_spectrogram(self, path: str):
-        os.remove(path)

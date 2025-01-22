@@ -18,9 +18,10 @@ def run_app():
 
     def wait_for_classification():
         global file_name
+
         result = WordAudioClassifier(
             class_labels=os.listdir("data/tsrc_spectrograms_cleaned/train"),
-            model_path="models/robustness_3_single_cnn_tsrc_spectrograms_cleaned_augmented_sharpened/",
+            model_path="models/",
             verbose=True,
         ).predict_word(file_name)
 
